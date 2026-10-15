@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar de Passagens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1c2b39; --ink-2:#4f5f6e; --paper:#edf1f4; --card:#ffffff; --line:#d5dde4;
+  --route:#2457c5; --sign:#f2c230; --board:#14263a; --board-2:#1d3550;
+  --ok:#1f8a5b; --warn:#b5541f; --err:#c2412d;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#e6edf3; --ink-2:#9fb0c0; --paper:#0f1c2a; --card:#162637; --line:#26394d;
+    --route:#7aa2ff; --board:#0a1522; --board-2:#13263a; --ok:#4cc38a; --warn:#e58a4e; --err:#ff7a63;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#e6edf3; --ink-2:#9fb0c0; --paper:#0f1c2a; --card:#162637; --line:#26394d;
+  --route:#7aa2ff; --board:#0a1522; --board-2:#13263a; --ok:#4cc38a; --warn:#e58a4e; --err:#ff7a63;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.5 "Barlow",system-ui,sans-serif}
+a{color:var(--route)}
+:focus-visible{outline:3px solid var(--sign);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+
+header.top{padding:20px 0 12px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between}
+header.top h1{font:700 1.6rem/1.1 "Barlow Condensed",sans-serif;margin:0;letter-spacing:.01em}
+header.top p{margin:0;color:var(--ink-2);font-size:.92rem}
+
+.aviso{background:var(--sign);color:#1c2b39;border-radius:var(--r);padding:12px 14px;margin:4px 0 16px;font-weight:500}
+.aviso strong{font-weight:700}
+
+/* Painel de partidas: o elemento de destaque da página */
+.board{background:var(--board);color:#f4f7fa;border-radius:14px;padding:16px 16px 10px;margin-bottom:22px}
+.board h2{font:600 1.15rem/1.2 "Barlow Condensed",sans-serif;margin:0 0 10px;color:var(--sign)}
+.board .vazio{color:#c2cfdc;padding:6px 0 10px}
+.row-b{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--board-2);text-decoration:none;color:inherit}
+.row-b:first-of-type{border-top:0}
+.row-b .dest{font:700 1.35rem/1.1 "Barlow Condensed",sans-serif;letter-spacing:.02em}
+.row-b .dest small{font:500 .95rem "Barlow",sans-serif;color:#b9c7d5;letter-spacing:0;margin-left:6px}
+.row-b .preco{font:700 1.45rem/1.1 "Barlow Condensed",sans-serif;color:var(--sign);text-align:right;font-variant-numeric:tabular-nums}
+.row-b .info{color:#c2cfdc;font-size:.9rem}
+.row-b .tag{justify-self:end;font-size:.85rem;font-weight:600;color:#14263a;background:var(--sign);border-radius:4px;padding:0 6px}
+.row-b .tag.erro{background:#ff8f7a}
+
+/* Filtros */
+.filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 12px;font:500 .92rem "Barlow",sans-serif;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--route);border-color:var(--route);color:var(--paper)}
+select,.toggle{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 10px;font:500 .92rem "Barlow",sans-serif}
+.toggle{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.contagem{color:var(--ink-2);font-size:.92rem;margin:0 0 8px}
+
+/* Lista de ofertas */
+.lista{display:flex;flex-direction:column;gap:8px;margin-bottom:28px}
+details.of{background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+details.of[open]{border-color:var(--route)}
+details.of summary{list-style:none;cursor:pointer;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center}
+details.of summary::-webkit-details-marker{display:none}
+.of .rota{font-weight:600}
+.of .rota .seta{color:var(--ink-2);font-weight:400}
+.of .sub{color:var(--ink-2);font-size:.9rem}
+.of .valor{font:700 1.3rem/1.1 "Barlow Condensed",sans-serif;text-align:right;font-variant-numeric:tabular-nums}
+.of .nivel{justify-self:end;font-size:.85rem;font-weight:600}
+.nivel.boa{color:var(--ok)} .nivel.otima{color:var(--ok)} .nivel.erro{color:var(--err)} .nivel.normal{color:var(--ink-2);font-weight:500}
+.corpo{padding:0 14px 14px;display:grid;gap:14px;grid-template-columns:1fr}
+@media (min-width:760px){.corpo{grid-template-columns:1.1fr 1fr}}
+.bloco h3{font:600 1rem "Barlow",sans-serif;margin:0 0 6px}
+.bloco p{margin:0 0 6px;font-size:.95rem}
+.spark{width:100%;height:70px;display:block}
+.milhas-veredito{font-weight:600;margin-bottom:6px}
+.milhas-veredito.sim{color:var(--ok)}
+table.mt{width:100%;border-collapse:collapse;font-size:.9rem}
+table.mt th,table.mt td{text-align:left;padding:5px 4px;border-top:1px solid var(--line);vertical-align:top}
+table.mt th{color:var(--ink-2);font-weight:500}
+table.mt td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.acoes{display:flex;flex-wrap:wrap;gap:8px}
+.btn{display:inline-block;background:var(--route);color:var(--paper);text-decoration:none;border-radius:8px;padding:8px 14px;font-weight:600}
+.btn.sec{background:transparent;color:var(--route);border:1px solid var(--route)}
+.mais{display:block;margin:0 auto 28px;}
+footer{color:var(--ink-2);font-size:.88rem;padding:8px 0 40px;border-top:1px solid var(--line)}
+footer p{max-width:72ch}
+@media (prefers-reduced-motion:no-preference){details.of[open] .corpo{animation:abre .18s ease-out}}
+@keyframes abre{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Radar de Passagens</h1>
+    <p id="status"></p>
+  </header>
+  <div id="aviso"></div>
+
+  <section class="board" aria-labelledby="t-board">
+    <h2 id="t-board">Melhores oportunidades agora</h2>
+    <div id="board"></div>
+  </section>
+
+  <section aria-label="Todas as ofertas">
+    <div class="filtros" id="filtros-regiao" role="group" aria-label="Região"></div>
+    <div class="filtros">
+      <select id="f-origem" aria-label="Aeroporto de saída"></select>
+      <select id="f-ordem" aria-label="Ordenar">
+        <option value="oportunidade">Maior desconto primeiro</option>
+        <option value="preco">Menor preço primeiro</option>
+        <option value="data">Data de ida mais próxima</option>
+      </select>
+      <label class="toggle"><input type="checkbox" id="f-op" checked> Só oportunidades</label>
+      <label class="toggle"><input type="checkbox" id="f-milhas"> Só onde milhas valem a pena</label>
+    </div>
+    <p class="contagem" id="contagem" aria-live="polite"></p>
+    <div class="lista" id="lista"></div>
+    <button class="chip mais" id="mais" hidden>Mostrar mais 30</button>
+  </section>
+
+  <footer>
+    <p>Preços em reais vêm de buscas recentes no Aviasales e podem ter mudado. Antes de comprar, confira no Google Flights pelo botão de cada oferta.</p>
+    <p>Milhas: o sistema não consulta os programas. Ele calcula quantas milhas valem a pena para cada preço (o seu valor mínimo por milheiro está no config.yaml) e compara com tabelas fixas públicas, conferidas em outubro de 2026.</p>
+  </footer>
+</div>
+
+<script id="dados" type="application/json">__DADOS__</script>
+<script>
+(function(){
+  const D = JSON.parse(document.getElementById('dados').textContent);
+  const brl = v => v == null ? '—' : v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+  const num = v => v.toLocaleString('pt-BR');
+  const pct = v => Math.round(v*100) + '%';
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const dt = s => { if(!s) return ''; const [y,m,d] = s.split('-'); return `${d}/${m}/${y.slice(2)}`; };
+  const NIVEL = {erro:'Possível erro tarifário', otima:'Ótima', boa:'Boa', normal:'Preço normal'};
+
+  // Status e aviso
+  const c = D.coleta;
+  document.getElementById('status').textContent = c
+    ? `Atualizado em ${new Date(c.iniciada_em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})} · ${num(c.ofertas)} preços coletados`
+    : 'Ainda sem coletas';
+  const aviso = document.getElementById('aviso');
+  if (D.demo) aviso.innerHTML = '<div class="aviso"><strong>Dados de demonstração.</strong> Estes preços são fictícios, gerados para testar o painel. Configure o token gratuito (passo 2 do README) para ver preços reais.</div>';
+  else if (!c) aviso.innerHTML = '<div class="aviso">Nenhuma coleta ainda. Rode o workflow "Radar" no GitHub (aba Actions) para buscar os primeiros preços.</div>';
+  else if (c.falhas > c.chamadas * 0.3) aviso.innerHTML = `<div class="aviso">A última coleta teve ${num(c.falhas)} consultas com falha. Alguns destinos podem estar sem preço.</div>`;
+
+  const ofertas = D.ofertas || [];
+  ofertas.forEach((o,i) => o._i = i);
+  const ops =ofertas.filter(o => o.nivel !== 'normal');
+
+  // Painel de partidas
+  const board = document.getElementById('board');
+  const top = ops.slice(0, 6);
+  board.innerHTML = top.length ? top.map(o => `
+    <a class="row-b" href="#of-${o._i}" data-alvo="${o._i}">
+      <span class="dest">${esc(o.nome_destino)}<small>de ${esc(o.origem)}</small></span>
+      <span class="preco">${brl(o.preco)}</span>
+      <span class="info">${dt(o.ida)}${o.volta ? ' a ' + dt(o.volta) : ' · só ida'} · ${o.escalas ? o.escalas + ' escala' + (o.escalas>1?'s':'') : 'direto'}</span>
+      <span class="tag ${o.nivel === 'erro' ? 'erro' : ''}">${o.desconto > 0 ? pct(o.desconto) + ' abaixo' : NIVEL[o.nivel]}</span>
+    </a>`).join('') : '<p class="vazio">Nenhuma oportunidade nesta coleta. Os preços estão dentro do normal para todas as rotas.</p>';
+
+  // Filtros
+  const regioes = [['todas','Todas']].concat(Object.entries(D.regioes));
+  const fr = document.getElementById('filtros-regiao');
+  let regiao = 'todas';
+  fr.innerHTML = regioes.map(([id,nome]) => `<button class="chip" data-r="${id}" aria-pressed="${id==='todas'}">${esc(nome)}</button>`).join('');
+  fr.addEventListener('click', e => { const b = e.target.closest('[data-r]'); if(!b) return;
+    regiao = b.dataset.r; fr.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x===b)); render(true); });
+  const fo = document.getElementById('f-origem');
+  fo.innerHTML = '<option value="">Todos os aeroportos</option>' + Object.entries(D.origens).map(([k,v]) => `<option value="${k}">${esc(k)} · ${esc(v)}</option>`).join('');
+  ['f-origem','f-ordem','f-op','f-milhas'].forEach(id => document.getElementById(id).addEventListener('change', () => render(true)));
+
+  const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  function spark(serie, ida){
+    if (!serie || serie.length < 2) return '<p class="sub">Histórico começa a aparecer após alguns dias de coleta.</p>';
+    const W=320, H=70, p=6, ys=serie, mn=Math.min(...ys), mx=Math.max(...ys), span=(mx-mn)||1;
+    const x = i => p + i*(W-2*p)/(serie.length-1), y = v => H-p-(v-mn)*(H-2*p)/span;
+    const pts = serie.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    const last = serie[serie.length-1];
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="Menor preço por dia: de ${brl(mn)} a ${brl(mx)}">
+      <polyline points="${pts}" fill="none" stroke="var(--route)" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="${x(serie.length-1)}" cy="${y(last)}" r="4" fill="var(--sign)" stroke="var(--board)" stroke-width="1.5"/>
+    </svg><p class="sub">Menor preço encontrado a cada dia de coleta, para viagens em ${MESES[+ida.slice(5,7)-1]}: de ${brl(mn)} a ${brl(mx)}. O ponto amarelo é hoje.</p>`;
+  }
+
+  function cartao(o){
+    const m = o.milhas;
+    const base = o.base === 'historico'
+      ? `Preço normal: ${brl(o.preco_normal)} (mediana de ${o.dias_historico} dias, ${esc(o.comparacao)}). Este preço está ${o.desconto>0 ? pct(o.desconto)+' abaixo' : pct(-o.desconto)+' acima'}.`
+      : `Ainda há pouco histórico (${o.dias_historico} dias). Comparado com a referência da região: ${brl(o.preco_normal)}.`;
+    const tabela = m.comparacoes.length ? `<table class="mt"><thead><tr><th>Programa</th><th>Milhas</th><th>R$/milheiro</th></tr></thead><tbody>${
+      m.comparacoes.map(t => `<tr><td>${esc(t.programa)}<br><span class="sub">${esc(D.programas[t.programa])}</span></td><td class="n">${num(t.milhas)}</td><td class="n" style="color:${t.vale?'var(--ok)':'var(--ink-2)'}">${t.valor_milheiro.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</td></tr>`).join('')
+    }</tbody></table>` : '';
+    return `<details class="of" id="of-${o._i}">
+      <summary>
+        <span class="rota">${esc(o.origem)} <span class="seta">para</span> ${esc(o.nome_destino)} <span class="sub">(${esc(o.aeroporto_destino)})</span></span>
+        <span class="valor">${brl(o.preco)}</span>
+        <span class="sub">${dt(o.ida)}${o.volta ? ' a ' + dt(o.volta) : ' · só ida'} · ${esc(o.cia)} · ${o.escalas ? o.escalas + ' escala' + (o.escalas>1?'s':'') : 'direto'}${o.menor_ja_visto ? ' · menor preço já visto' : ''}</span>
+        <span class="nivel ${o.nivel}">${NIVEL[o.nivel]}</span>
+      </summary>
+      <div class="corpo">
+        <div class="bloco">
+          <h3>Este preço é bom?</h3>
+          <p>${base}</p>
+          ${spark(D.series[o.serie], o.ida)}
+        </div>
+        <div class="bloco">
+          <h3>Reais ou milhas?</h3>
+          <p class="milhas-veredito ${m.usar_milhas?'sim':''}">${esc(m.veredito)}</p>
+          <p>Emitir com milhas só compensa até <strong>${num(m.teto_milhas)} milhas</strong> + cerca de ${brl(m.taxas_estimadas)} em taxas (rendendo ${brl(D.valor_minimo_milheiro)} por milheiro).</p>
+          ${tabela}
+        </div>
+        <div class="acoes">
+          <a class="btn" href="${esc(o.link_google)}" target="_blank" rel="noopener">Conferir no Google Flights</a>
+          ${o.link_fonte ? `<a class="btn sec" href="${esc(o.link_fonte)}" target="_blank" rel="noopener">Ver no Aviasales</a>` : ''}
+        </div>
+      </div>
+    </details>`;
+  }
+
+  let limite = 30;
+  const lista = document.getElementById('lista'), mais = document.getElementById('mais');
+  function render(reset){
+    if (reset) limite = 30;
+    const org = fo.value, so = document.getElementById('f-op').checked, sm = document.getElementById('f-milhas').checked, ord = document.getElementById('f-ordem').value;
+    let r = ofertas.filter(o => (regiao==='todas'||o.regiao===regiao) && (!org||o.origem===org) && (!so||o.nivel!=='normal') && (!sm||o.milhas.usar_milhas));
+    if (ord==='preco') r = r.slice().sort((a,b)=>a.preco-b.preco);
+    if (ord==='data') r = r.slice().sort((a,b)=>a.ida.localeCompare(b.ida));
+    document.getElementById('contagem').textContent = r.length
+      ? `${num(r.length)} ${r.length===1?'oferta':'ofertas'}`
+      : (so ? 'Nenhuma oportunidade com esses filtros. Desmarque "Só oportunidades" para ver todos os preços.' : 'Nenhuma oferta com esses filtros.');
+    lista.innerHTML = r.slice(0, limite).map(cartao).join('');
+    mais.hidden = r.length <= limite;
+  }
+  mais.addEventListener('click', () => { limite += 30; render(false); });
+  board.addEventListener('click', e => {
+    const a = e.target.closest('[data-alvo]'); if(!a) return;
+    e.preventDefault();
+    document.getElementById('f-op').checked = true; regiao='todas';
+    fr.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x.dataset.r==='todas'));
+    fo.value=''; document.getElementById('f-milhas').checked=false; document.getElementById('f-ordem').value='oportunidade';
+    limite = Math.max(limite, ops.length); render(false);
+    const el = document.getElementById('of-' + a.dataset.alvo);
+    if (el){ el.open = true; el.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto':'smooth', block:'start'}); el.querySelector('summary').focus(); }
+  });
+  render(true);
+})();
+</script>
+</body>
+</html>
