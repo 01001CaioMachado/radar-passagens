@@ -1,0 +1,77 @@
+name: Radar
+
+on:
+  schedule:
+    # 3 vezes por dia (horário de Brasília: ~06:47, 12:47 e 19:47)
+    - cron: "47 9 * * *"
+    - cron: "47 15 * * *"
+    - cron: "47 22 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: radar
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Baixar histórico
+        run: |
+          mkdir -p data
+          if git fetch --depth=1 origin dados 2>/dev/null; then
+            git show FETCH_HEAD:historico.db > data/historico.db && echo "Histórico recuperado"
+          else
+            echo "Primeira execução: histórico vazio"
+          fi
+
+      - name: Buscar preços e gerar painel
+        run: |
+          if [ -z "$TRAVELPAYOUTS_TOKEN" ]; then
+            echo "::warning::Secret TRAVELPAYOUTS_TOKEN não configurado — publicando painel de DEMONSTRAÇÃO."
+            python -m radar.main demo
+          else
+            python -m radar.main tudo
+          fi
+
+      - name: Salvar histórico
+        if: always() && env.TRAVELPAYOUTS_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -f data/historico.db ] || exit 0
+          tmp=$(mktemp -d)
+          cp data/historico.db "$tmp/"
+          cd "$tmp"
+          git init -q -b dados
+          git -c user.name=radar-bot -c user.email=radar-bot@users.noreply.github.com add historico.db
+          git -c user.name=radar-bot -c user.email=radar-bot@users.noreply.github.com commit -qm "Histórico $(date -u +%F\ %H:%M)"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dados
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
